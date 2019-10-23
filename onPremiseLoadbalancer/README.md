@@ -37,4 +37,4 @@ spec:
     targetPort: 5672
   selector:
     app: rabbitmq
-´´´
+```
