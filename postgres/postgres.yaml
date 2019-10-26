@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: postgres
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv0002
+spec:
+  capacity:
+    storage: 50Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - hard
+  nfs:
+    path: /mnt/ZfsMedia/kubernetes/postgres
+    server: 192.168.123.30
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: postgres
+  name: pvc0002
+spec:
+  accessModes:
+  - ReadWriteOnce    
+  resources:
+     requests:
+       storage: 20Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: postgres
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  selector:
+    app: postgres
+  type: LoadBalancer
+  loadBalancerIP: 10.10.10.30
+  ports:
+  - name: dnstcp
+    protocol: TCP
+    port: 5432
+    targetPort: 5432
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: postgres
+  name: postgres
+spec:
+  selector:
+    matchLabels:
+      app: postgres # has to match .spec.template.metadata.labels
+  serviceName: postgres
+  replicas: 1 # by default is 1
+  template:
+    metadata:
+      labels:
+        app: postgres # has to match .spec.selector.matchLabels
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: postgres
+        image: arm32v7/postgres
+        env:
+        - name: POSTGRES_PASSWORD
+          value: pgpass
+        - name: POSTGRES_USER
+          value: pguser
+        ports:
+        - containerPort: 5432
+          name: postgres
+        volumeMounts:
+        - name: postgres
+          mountPath: /var/lib/postgresql/data:z
+          subPath: postgres0
+      volumes:
+      - name: postgres
+        persistentVolumeClaim:
+          claimName: pvc0002
