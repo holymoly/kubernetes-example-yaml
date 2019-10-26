@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nodered
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv0004
+spec:
+  capacity:
+    storage: 50Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - hard
+  nfs:
+    path: /mnt/ZfsMedia/kubernetes/
+    server: 192.168.123.30
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: nodered
+  name: pvc0004
+spec:
+  accessModes:
+  - ReadWriteOnce    
+  resources:
+     requests:
+       storage: 20Gi
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  namespace: nodered
+  name: nodered
+  labels:
+    app: nodered
+    type: LoadBalancer
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 10.10.10.50
+  ports:
+  - name: nodered
+    protocol: TCP
+    port: 80
+    targetPort: 1880
+  selector:
+    app: nodered
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nodered
+  namespace: nodered
+  labels:
+    app: nodered
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nodered
+  serviceName: nodered
+  template:
+    metadata:
+      labels:
+        app: nodered
+        name: nodered
+    spec:
+      containers:
+      - name: nodered
+        image: nodered/node-red
+        imagePullPolicy: Always
+        ports:
+        - name: nodered
+          protocol: TCP
+          containerPort: 1880
+        volumeMounts:
+        - name: nodered
+          mountPath: /data
+          subPath: nodered
+      volumes:
+      - name: nodered
+        persistentVolumeClaim:
+          claimName: pvc0004
