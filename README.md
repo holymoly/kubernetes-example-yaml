@@ -1,2 +1,3 @@
 # kubernetes-example-yaml
-some kubernetes examples
+some kubernetes examples for raspberry pi 4
+
