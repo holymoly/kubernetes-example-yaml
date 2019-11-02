@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: elk
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  namespace: elk
+  name: elk
+  labels:
+    app: elk
+    type: LoadBalancer
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 10.10.10.60
+  ports:
+  - name: elk1
+    protocol: TCP
+    port: 5601
+    targetPort: 
+  - name: elk2
+    protocol: TCP
+    port: 9200
+    targetPort: 9200
+  - name: elk3
+    protocol: TCP
+    port: 5044
+    targetPort: 5044
+  selector:
+    app: elk
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elk
+  namespace: elk
+  labels:
+    app: elk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elk
+  serviceName: elk
+  template:
+    metadata:
+      labels:
+        app: elk
+        name: elk
+    spec:
+      containers:
+      - name: elk
+        image: herpiko/arm32v7-elk
+        imagePullPolicy: Always
+        ports:
+        - name: elk1
+          protocol: TCP
+          containerPort: 5601
+        - name: elk2
+          protocol: TCP
+          containerPort: 9200
+        - name: elk3
+          protocol: TCP
+          containerPort: 5044

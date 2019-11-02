@@ -54,6 +54,49 @@ spec:
     targetPort: 5432
 
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: postgres
+data:
+  postgres.sh: |
+      #!/bin/bash
+      set -e
+
+      psql -v ON_ERROR_STOP=1 --username "pguser" --dbname "users" <<-EOSQL
+      DROP SCHEMA IF EXISTS "users" ;
+
+      -- -----------------------------------------------------
+      -- Schema users
+      -- -----------------------------------------------------
+      CREATE SCHEMA users
+        AUTHORIZATION pguser;
+
+      GRANT ALL ON SCHEMA users TO pguser;
+
+      -- -----------------------------------------------------
+      -- Table "users"."users"
+      -- -----------------------------------------------------
+      DROP TABLE IF EXISTS "users"."users";
+
+      CREATE TABLE users.users
+      (
+          user_id integer NOT NULL DEFAULT nextval('users.users_user_id_seq'::regclass),
+          firstname character varying(45) COLLATE pg_catalog."default",
+          lastname character varying(45) COLLATE pg_catalog."default",
+          username character varying(45) COLLATE pg_catalog."default",
+          email character varying(100)[] COLLATE pg_catalog."default",
+          "timestamp" timestamp with time zone
+      )
+
+      TABLESPACE pg_default;
+
+      ALTER TABLE users.users
+          OWNER to pguser;
+      EOSQL
+
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -79,14 +122,24 @@ spec:
           value: pgpass
         - name: POSTGRES_USER
           value: pguser
+        - name: POSTGRES_DB
+          value: users
         ports:
         - containerPort: 5432
           name: postgres
         volumeMounts:
+        - name: postgres-init
+          mountPath: /docker-entrypoint-initdb.d/
         - name: postgres
           mountPath: /var/lib/postgresql/data:z
           subPath: postgres0
       volumes:
+      - name: postgres-init
+        configMap:
+          name: postgres-config
+          items:
+          - key: postgres.sh
+            path: postgres.sh
       - name: postgres
         persistentVolumeClaim:
           claimName: pvc0002

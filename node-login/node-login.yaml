@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: node-login
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  namespace: node-login
+  name: node-login
+  labels:
+    app: node-login
+    type: LoadBalancer
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 10.10.10.90
+  ports:
+  - name: web
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  selector:
+    app: node-login
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nodeapp-config
+  namespace: node-login
+data:
+  node-login.sh: |
+      #!/bin/bash
+      git clone --single-branch --branch pg $NODE_GIT_REPO
+      cd api
+      npm install
+      npm start
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: node-login
+  name: node-login
+  labels:
+    app: node-login
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node-login
+  template:
+    metadata:
+      labels:
+        app: node-login
+        name: node-login
+    spec:
+      containers:
+        - name: node-login
+          image: node:12
+          command: ["/usr/src/node-login.sh"]
+          env:
+          - name: NODE_GIT_REPO
+            value: https://github.com/holymoly/api
+          - name: HAPIPORT
+            value: "8080"
+          - name: HAPIHOST
+            value: 0.0.0.0
+          - name: PGPORT
+            value: "5432"
+          - name: PGHOST
+            value: 10.10.10.30
+          - name: PGUSER
+            value: pguser
+          - name: PGPASSWORD
+            value: pgpass
+          - name: PGDATABASE
+            value: users
+          - name: DATABUSHOST
+            value: 10.10.10.10
+          - name: DATABUSPORT
+            value: "1883"
+          - name: DATABUSUSER
+            value: guest
+          - name: DATABUSPASSWORD
+            value: guest
+          - name: DATABUSPROTOCOL
+            value: mqtt
+          - name: LGAUTHLEVEL
+            value: debug
+          - name: LGDBLEVEL
+            value: debug
+          - name: LGROUTESLEVEL
+            value: debug
+          - name: LGAPPLEVEL
+            value: debug
+          - name: LGDATABUSLEVEL
+            value: debug
+          volumeMounts:
+          - name: node-login-init
+            mountPath: "/usr/src"
+          ports:
+            - name: web
+              protocol: TCP
+              containerPort: 8080
+      volumes:
+      - name: node-login-init
+        configMap:
+          name: nodeapp-config
+          defaultMode: 0777
+          items:
+          - key: node-login.sh
+            path: node-login.sh
